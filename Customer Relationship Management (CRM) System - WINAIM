@@ -1,0 +1,210 @@
+CUSTOMERS TABLE:
+
+CREATE TABLE customers (
+    customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    country TEXT
+);
+
+CONTACTS TABLE:
+
+CREATE TABLE contacts (
+    contact_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    position TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+OPPORTUNITIES TABLE:
+
+CREATE TABLE opportunities (
+    opportunity_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    opportunity_name TEXT NOT NULL,
+    amount REAL,
+    stage TEXT NOT NULL,
+    close_date DATE,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+INTERACTIONS TABLE:
+
+CREATE TABLE interactions (
+    interaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    interaction_type TEXT NOT NULL,
+    interaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+);
+
+
+Backend development with flask
+
+App.py:
+from flask import Flask, request, jsonify
+from flask_restful import Api, Resource, reqparse, abort
+import sqlite3
+
+app = Flask(__name__)
+api = Api(app)
+
+# Helper function to establish database connection
+def get_db_connection():
+    conn = sqlite3.connect('crm.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# API Resource for Customers
+class CustomerResource(Resource):
+    def get(self, customer_id=None):
+        conn = get_db_connection()
+        if customer_id:
+            customer = conn.execute('SELECT * FROM customers WHERE customer_id = ?', (customer_id,)).fetchone()
+            conn.close()
+            if not customer:
+                abort(404, message="Customer not found")
+            return jsonify(dict(customer)), 200
+        else:
+            customers = conn.execute('SELECT * FROM customers').fetchall()
+            conn.close()
+            return jsonify([dict(c) for c in customers]), 200
+
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('customer_name', required=True)
+        parser.add_argument('email')
+        parser.add_argument('phone')
+        parser.add_argument('address')
+        parser.add_argument('city')
+        parser.add_argument('state')
+        parser.add_argument('country')
+        args = parser.parse_args()
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO customers (customer_name, email, phone, address, city, state, country) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                       (args['customer_name'], args['email'], args['phone'], args['address'], args['city'], args['state'], args['country']))
+        conn.commit()
+        new_customer_id = cursor.lastrowid
+        conn.close()
+
+        return jsonify({"message": "Customer created successfully", "customer_id": new_customer_id}), 201
+
+    def put(self, customer_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('customer_name', required=True)
+        parser.add_argument('email')
+        parser.add_argument('phone')
+        parser.add_argument('address')
+        parser.add_argument('city')
+        parser.add_argument('state')
+        parser.add_argument('country')
+        args = parser.parse_args()
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE customers SET customer_name=?, email=?, phone=?, address=?, city=?, state=?, country=? WHERE customer_id=?',
+                       (args['customer_name'], args['email'], args['phone'], args['address'], args['city'], args['state'], args['country'], customer_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Customer updated successfully", "customer_id": customer_id}), 200
+
+    def delete(self, customer_id):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM customers WHERE customer_id=?', (customer_id,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"message": "Customer deleted successfully", "customer_id": customer_id}), 200
+
+# API Resource for Interactions
+class InteractionResource(Resource):
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('customer_id', type=int, required=True)
+        parser.add_argument('interaction_type', required=True)
+        parser.add_argument('notes')
+        args = parser.parse_args()
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO interactions (customer_id, interaction_type, notes) VALUES (?, ?, ?)',
+                       (args['customer_id'], args['interaction_type'], args['notes']))
+        conn.commit()
+        new_interaction_id = cursor.lastrowid
+        conn.close()
+
+        return jsonify({"message": "Interaction logged successfully", "interaction_id": new_interaction_id}), 201
+
+# Adding API resources to the Flask application
+api.add_resource(CustomerResource, '/customers', '/customers/<int:customer_id>')
+api.add_resource(InteractionResource, '/interactions')
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
+FRONTEND INTERFACE(HTML and Javascript)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM System</title>
+</head>
+<body>
+    <h1>CRM System</h1>
+    
+    <h2>Customers</h2>
+    <div>
+        <form id="customerForm">
+            <label for="customerName">Customer Name:</label>
+            <input type="text" id="customerName" name="customerName" required><br><br>
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email"><br><br>
+            <label for="phone">Phone:</label>
+            <input type="text" id="phone" name="phone"><br><br>
+            <label for="address">Address:</label>
+            <input type="text" id="address" name="address"><br><br>
+            <label for="city">City:</label>
+            <input type="text" id="city" name="city"><br><br>
+            <label for="state">State:</label>
+            <input type="text" id="state" name="state"><br><br>
+            <label for="country">Country:</label>
+            <input type="text" id="country" name="country"><br><br>
+            <button type="submit">Add Customer</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('customerForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            fetch('/customers', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Customer added successfully with ID: ' + data.customer_id);
+                document.getElementById('customerForm').reset();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
