@@ -1,0 +1,56 @@
+SQL QUERY
+### Exercise 1: Employee Management System
+
+**Objective**: To test the ability to design relational databases, write complex
+SQL queries, and handle data relationships.
+
+#### Requirements:
+
+1. **Database Schema Design**:
+- Create tables for `employees`, `departments`, and `salaries`.
+- `employees` table should include: `employee_id`, `first_name`, `last_name`,
+`department_id`, `hire_date`.
+- `departments` table should include: `department_id`, `department_name`.
+- `salaries` table should include: `employee_id`, `salary`, `from_date`,
+`to_date`.
+
+CREATE TABLE employees (
+    employee_id int PRIMARY KEY,
+    first_name varchar(255),
+    last_name varchar(255),
+    department_id varchar(255),
+    hire_date DATE
+)
+
+CREATE TABLE departments (
+    department_id varchar(255) PRIMARY KEY,
+    department_name varchar(255)
+)
+
+CREATE TABLE salaries (
+    employee_id int PRIMARY KEY,
+    salary float,
+    from_date DATE,
+    to_date DATE
+)
+
+2. **SQL Queries**:
+i)   Write a query to find all employees who have been hired in the last year.
+ii)  Write a query to calculate the total salary expenditure for each department.
+iii) Write a query to find the top 5 highest-paid employees along with their
+department names.
+
+i) SELECT *
+   FROM employees
+   WHERE hire_date >= DATE_SUB(NOW(), INTERVAL 1 YEAR);
+
+ii) SELECT department_name, SUM(salary) AS total_salary_expenditure
+    FROM employees
+    GROUP BY departments;
+
+iii) SELECT employees.employee_id, employees.first_name, departments.department_name, salaries.salary
+     FROM employees 
+     JOIN departments ON employees.department_id = departments.department_id
+     JOIN salaries ON employees.employee_id = salaries.employee_id
+     ORDER BY salaries.salary DESC
+     LIMIT 5;
